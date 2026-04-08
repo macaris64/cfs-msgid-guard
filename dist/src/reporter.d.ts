@@ -23,6 +23,6 @@ export declare function emitAnnotations(result: DetectionResult): void;
  * Generate a machine-readable JSON artifact of the full allocation map.
  */
 export declare function generateJsonArtifact(result: DetectionResult, bases: BaseAddresses): string;
-export declare function asciiTable(headers: string[], rows: string[][]): string;
+export declare function asciiTable(headers: string[], rows: Array<Array<string | null | undefined>>): string;
 export declare function generateAuditReport(result: DetectionResult, bases: BaseAddresses, scanPath: string, expectedCount: number | null): string;
 //# sourceMappingURL=reporter.d.ts.map

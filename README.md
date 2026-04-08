@@ -215,6 +215,8 @@ npx cfs-msgid-guard
 | `--no-fail-on-collision` | | Exit 0 even with collisions |
 | `--format <table\|json\|summary>` | `table` | Output format |
 | `--no-color` | | Disable ANSI colors |
+| `--report` | | Write `collusion-report.txt` in the current directory |
+| `--expected-count <n>` | | Add an Expected vs Actual section to the report |
 
 ### Examples
 
@@ -230,6 +232,9 @@ cfs-msgid-guard --cmd-base 0x2000 --tlm-base 0x1000
 
 # CI-friendly: no color, exit 0 for reporting only
 cfs-msgid-guard --no-color --no-fail-on-collision
+
+# Generate an audit report file
+cfs-msgid-guard --scan-path /path/to/cfs-mission --report --expected-count 20 --no-color
 ```
 
 Exit codes: `0` = clean, `1` = collisions found (or no files), `2` = fatal error.
@@ -314,6 +319,36 @@ The project ships two independent bundles from the same pipeline engine:
 `npm run build` produces both. The CLI bundle has zero dependency on `@actions/core`.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed contribution guidelines.
+
+---
+
+## Releasing (npm)
+
+Publishing is automated via GitHub Actions when you push a version tag matching `v*`.
+
+- **One-time setup**
+  - Create an npm automation token and add it to GitHub repo secrets as `NPM_TOKEN`.
+  - Ensure `npm run build` succeeds locally (the published package ships `dist/cli.js` and `dist/index.js`).
+
+- **Release steps**
+
+```bash
+# 1) Bump version and create tag (choose one)
+npm version patch
+# npm version minor
+# npm version major
+
+# 2) Push commit + tag
+git push --follow-tags
+```
+
+- **Verify**
+  - In GitHub Actions, confirm the `Publish to npmjs` workflow ran on the tag.
+  - Test install/run:
+
+```bash
+npx cfs-msgid-guard --scan-path /path/to/cfs-mission --no-color
+```
 
 ---
 
