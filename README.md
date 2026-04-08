@@ -2,7 +2,7 @@
 
 **Prevent silent Message ID collisions in NASA cFS missions.**
 
-[![CI](https://github.com/YOUR_USERNAME/cfs-msgid-guard/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/cfs-msgid-guard/actions/workflows/ci.yml)
+[![CI](https://github.com/macaris64/cfs-msgid-guard/actions/workflows/ci.yml/badge.svg)](https://github.com/macaris64/cfs-msgid-guard/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)](https://github.com/YOUR_USERNAME/cfs-msgid-guard)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-cFS%20MsgID%20Guard-blue?logo=github)](https://github.com/marketplace/actions/cfs-msgid-guard)
