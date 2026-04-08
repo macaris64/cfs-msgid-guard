@@ -152,7 +152,8 @@ describe('generateAuditReport', () => {
     const result = mockResult(3, true);
     const report = generateAuditReport(result, DEFAULT_BASES, '/test/apps', 3);
 
-    expect(report).not.toMatch(/\x1b\[/);
+    // Avoid regexes containing control characters (ESLint no-control-regex).
+    expect(report.includes('\u001b[')).toBe(false);
   });
 });
 
@@ -162,13 +163,14 @@ describe('generateAuditReport', () => {
 
 describe('asciiTable', () => {
   it('handles rows with fewer columns than headers (undefined cells)', () => {
-    const table = asciiTable(['A', 'B', 'C'], [['x'] as any]);
+    const table = asciiTable(['A', 'B', 'C'], [['x']]);
     expect(table).toContain('| x');
     expect(table).toContain('+');
   });
 
   it('handles explicit undefined/null cell values in a row', () => {
-    const table = asciiTable(['A', 'B'], [[undefined as any, 'y']]);
+    // Use a real undefined cell to cover the (c ?? '') branch in asciiTable.
+    const table = asciiTable(['A', 'B'], [[undefined, 'y']]);
     expect(table).toContain('| y');
   });
 });

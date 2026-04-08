@@ -310,13 +310,16 @@ function buildCollisionSet(collisions: Collision[]): Set<string> {
 // ASCII Table Helper
 // ---------------------------------------------------------------------------
 
-export function asciiTable(headers: string[], rows: string[][]): string {
+export function asciiTable(
+  headers: string[],
+  rows: Array<Array<string | null | undefined>>,
+): string {
   const colWidths = headers.map((h, i) =>
     Math.max(h.length, ...rows.map(r => (r[i] ?? '').length)),
   );
 
   const sep = '+' + colWidths.map(w => '-'.repeat(w + 2)).join('+') + '+';
-  const fmtRow = (cells: string[]) =>
+  const fmtRow = (cells: Array<string | null | undefined>): string =>
     '|' + cells.map((c, i) => ' ' + (c ?? '').padEnd(colWidths[i]) + ' ').join('|') + '|';
 
   const lines: string[] = [];
