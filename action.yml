@@ -1,8 +1,5 @@
 name: 'cFS MsgID Guard'
-description: >-
-  Prevent silent flight software failures by detecting Message ID collisions
-  across NASA cFS applications. Scans topic ID headers, computes the full 4-channel
-  MsgID allocation map, and reports conflicts as PR annotations.
+description: 'Detects NASA cFS MsgID collisions by scanning topic IDs and reports conflicts via PR annotations.'
 author: 'cfs-msgid-guard'
 
 branding:
