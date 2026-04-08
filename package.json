@@ -1,6 +1,6 @@
 {
   "name": "cfs-msgid-guard",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "GitHub Action and CLI to detect Message ID collisions in NASA cFS missions",
   "author": "macaris64",
   "license": "Apache-2.0",
