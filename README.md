@@ -244,6 +244,35 @@ npm run typecheck
 npm run build
 ```
 
+### Local Manual Runner
+
+You can run the full pipeline locally in your terminal without a GitHub Actions environment:
+
+```bash
+# Analyze the 9 real NASA cFS Draco headers (42 topic IDs, 4 channels)
+npm run test:manual
+
+# Run against the synthetic collision fixtures
+npm run test:manual -- --collision
+
+# Enable near-miss warnings (flag topic IDs within N of each other)
+npm run test:manual -- --near-miss-gap 3
+
+# Output the JSON allocation artifact
+npm run test:manual -- --json
+
+# Output the raw Markdown Job Summary
+npm run test:manual -- --summary
+
+# Point at your own cFS checkout
+npm run test:manual -- --scan-path /path/to/your/cfs-mission
+
+# Combine flags
+npm run test:manual -- --collision --near-miss-gap 2
+```
+
+The local runner imports only the pure library functions and has zero dependency on `@actions/core`. Exit code is `0` for clean, `1` if collisions are found.
+
 See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed contribution guidelines.
 
 ---
