@@ -2,3 +2,8 @@ node_modules/
 coverage/
 *.tsbuildinfo
 .eslintcache
+
+# ncc emits declaration maps with machine-specific absolute paths.
+# Only dist/index.js (the bundle) is needed for the action.
+dist/src/
+dist/__tests__/

@@ -51,9 +51,9 @@ jobs:
 
       - name: Verify dist is up to date
         run: |
-          if [ -n "$(git diff --name-only dist/)" ]; then
+          if [ -n "$(git diff --name-only dist/index.js)" ]; then
             echo "::error::dist/index.js is out of date. Run 'npm run build' and commit the result."
-            git diff --stat dist/
+            git diff --stat dist/index.js
             exit 1
           fi
 
@@ -68,8 +68,8 @@ jobs:
         uses: ./
         id: clean-check
         with:
-          scan-paths: '__tests__/fixtures/real'
-          topicid-pattern: '**/*_topicids.h'
+          scan-paths: '__tests__/fixtures'
+          topicid-pattern: '**/real/*_topicids.h'
           msgid-pattern: '**/*_msgids.h'
           fail-on-collision: 'true'
           near-miss-gap: '0'
