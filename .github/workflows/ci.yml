@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Test with coverage
+        run: npm run test:coverage
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Build dist/index.js
+        run: npm run build
+
+      - name: Verify dist is up to date
+        run: |
+          if [ -n "$(git diff --name-only dist/)" ]; then
+            echo "::error::dist/index.js is out of date. Run 'npm run build' and commit the result."
+            git diff --stat dist/
+            exit 1
+          fi
+
+  dogfood:
+    name: Dogfood
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run cfs-msgid-guard against test fixtures (clean bundle)
+        uses: ./
+        id: clean-check
+        with:
+          scan-paths: '__tests__/fixtures/real'
+          topicid-pattern: '**/*_topicids.h'
+          msgid-pattern: '**/*_msgids.h'
+          fail-on-collision: 'true'
+          near-miss-gap: '0'
+          report-format: 'both'
+
+      - name: Verify clean bundle produced 0 collisions
+        run: |
+          echo "Collision count: ${{ steps.clean-check.outputs.collision-count }}"
+          echo "Has collisions: ${{ steps.clean-check.outputs.has-collisions }}"
+          if [ "${{ steps.clean-check.outputs.has-collisions }}" = "true" ]; then
+            echo "::error::Expected 0 collisions on real cFS fixtures"
+            exit 1
+          fi
+
+      - name: Run cfs-msgid-guard against collision fixtures
+        uses: ./
+        id: collision-check
+        with:
+          scan-paths: '__tests__/fixtures'
+          topicid-pattern: '**/collision_app_*_topicids.h'
+          msgid-pattern: '**/*_msgids.h'
+          fail-on-collision: 'false'
+          report-format: 'both'
+
+      - name: Verify collision fixtures produce collisions
+        run: |
+          echo "Collision count: ${{ steps.collision-check.outputs.collision-count }}"
+          if [ "${{ steps.collision-check.outputs.has-collisions }}" != "true" ]; then
+            echo "::error::Expected collisions on collision fixtures but found none"
+            exit 1
+          fi

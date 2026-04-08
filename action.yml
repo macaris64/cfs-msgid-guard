@@ -1,0 +1,64 @@
+name: 'cFS MsgID Guard'
+description: >-
+  Prevent silent flight software failures by detecting Message ID collisions
+  across NASA cFS applications. Scans topic ID headers, computes the full 4-channel
+  MsgID allocation map, and reports conflicts as PR annotations.
+author: 'cfs-msgid-guard'
+
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  scan-paths:
+    description: 'Root directories to scan (comma-separated)'
+    required: false
+    default: '.'
+  topicid-pattern:
+    description: 'Glob pattern(s) for topic ID headers (comma-separated)'
+    required: false
+    default: '**/*_topicids.h'
+  msgid-pattern:
+    description: 'Glob pattern(s) for MsgID definition headers used for channel classification'
+    required: false
+    default: '**/*_msgids.h'
+  cmd-base:
+    description: 'Platform command MsgID base address'
+    required: false
+    default: '0x1800'
+  tlm-base:
+    description: 'Platform telemetry MsgID base address'
+    required: false
+    default: '0x0800'
+  global-cmd-base:
+    description: 'Global command MsgID base address'
+    required: false
+    default: '0x1860'
+  global-tlm-base:
+    description: 'Global telemetry MsgID base address'
+    required: false
+    default: '0x0860'
+  fail-on-collision:
+    description: 'Fail the workflow if a collision is detected'
+    required: false
+    default: 'true'
+  near-miss-gap:
+    description: 'Warn about topic IDs within N of each other (0 to disable)'
+    required: false
+    default: '0'
+  report-format:
+    description: 'Output format: summary, json, or both'
+    required: false
+    default: 'both'
+
+outputs:
+  collision-count:
+    description: 'Number of MsgID collisions found'
+  has-collisions:
+    description: 'Whether any collisions were found (true/false)'
+  allocation-map:
+    description: 'JSON string of the full MsgID allocation map'
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
