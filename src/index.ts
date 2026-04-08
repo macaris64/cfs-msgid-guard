@@ -145,4 +145,8 @@ export {
 export * from './types';
 
 // --- Entry point -----------------------------------------------------------
-run();
+// Only auto-execute when running inside GitHub Actions.
+// Library consumers and the CLI entry point import without side effects.
+if (process.env.GITHUB_ACTIONS) {
+  run();
+}

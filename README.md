@@ -181,6 +181,61 @@ PR annotations pinpoint the exact file and line of each conflicting `#define`.
 
 ---
 
+## CLI Usage
+
+You can run MsgID collision detection locally — no GitHub Actions required.
+
+### Quick Start
+
+```bash
+# Run directly (no install needed)
+npx cfs-msgid-guard --scan-path /path/to/cfs-mission
+
+# Or install globally
+npm install -g cfs-msgid-guard
+cfs-msgid-guard --scan-path .
+
+# Or as a dev dependency
+npm install --save-dev cfs-msgid-guard
+npx cfs-msgid-guard
+```
+
+### CLI Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--scan-path <path>` | `.` | Root directory to scan |
+| `--topicid-pattern <glob>` | `**/*_topicids.h` | Topic ID header glob |
+| `--msgid-pattern <glob>` | `**/*_msgids.h` | MsgID header glob |
+| `--cmd-base <hex>` | `0x1800` | Platform CMD base address |
+| `--tlm-base <hex>` | `0x0800` | Platform TLM base address |
+| `--global-cmd-base <hex>` | `0x1860` | Global CMD base address |
+| `--global-tlm-base <hex>` | `0x0860` | Global TLM base address |
+| `--near-miss-gap <n>` | `0` | Warn about IDs within N of each other |
+| `--no-fail-on-collision` | | Exit 0 even with collisions |
+| `--format <table\|json\|summary>` | `table` | Output format |
+| `--no-color` | | Disable ANSI colors |
+
+### Examples
+
+```bash
+# Scan with near-miss warnings
+cfs-msgid-guard --scan-path . --near-miss-gap 3
+
+# JSON output for scripting
+cfs-msgid-guard --format json --scan-path .
+
+# Custom base addresses
+cfs-msgid-guard --cmd-base 0x2000 --tlm-base 0x1000
+
+# CI-friendly: no color, exit 0 for reporting only
+cfs-msgid-guard --no-color --no-fail-on-collision
+```
+
+Exit codes: `0` = clean, `1` = collisions found (or no files), `2` = fatal error.
+
+---
+
 ## Advanced Usage
 
 ### Custom Base Addresses
@@ -228,7 +283,7 @@ Use the `allocation-map` output in subsequent workflow steps:
 # Install dependencies
 npm install
 
-# Run tests (177 tests)
+# Run tests (208 tests)
 npm test
 
 # Run with coverage (100% required)
@@ -240,38 +295,23 @@ npm run lint
 # Type check
 npm run typecheck
 
-# Build dist/index.js
+# Build both bundles (dist/index.js + dist/cli.js)
 npm run build
-```
 
-### Local Manual Runner
-
-You can run the full pipeline locally in your terminal without a GitHub Actions environment:
-
-```bash
-# Analyze the 9 real NASA cFS Draco headers (42 topic IDs, 4 channels)
+# Quick manual test against bundled NASA fixtures
 npm run test:manual
-
-# Run against the synthetic collision fixtures
-npm run test:manual -- --collision
-
-# Enable near-miss warnings (flag topic IDs within N of each other)
-npm run test:manual -- --near-miss-gap 3
-
-# Output the JSON allocation artifact
-npm run test:manual -- --json
-
-# Output the raw Markdown Job Summary
-npm run test:manual -- --summary
-
-# Point at your own cFS checkout
-npm run test:manual -- --scan-path /path/to/your/cfs-mission
-
-# Combine flags
-npm run test:manual -- --collision --near-miss-gap 2
 ```
 
-The local runner imports only the pure library functions and has zero dependency on `@actions/core`. Exit code is `0` for clean, `1` if collisions are found.
+### Dual Build
+
+The project ships two independent bundles from the same pipeline engine:
+
+| Bundle | Built by | Purpose |
+|--------|----------|---------|
+| `dist/index.js` | `npm run build:action` | GitHub Action entry point (`action.yml` main) |
+| `dist/cli.js` | `npm run build:cli` | CLI entry point (`package.json` bin) |
+
+`npm run build` produces both. The CLI bundle has zero dependency on `@actions/core`.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed contribution guidelines.
 

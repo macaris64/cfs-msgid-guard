@@ -1,13 +1,18 @@
 {
   "name": "cfs-msgid-guard",
   "version": "1.0.0",
-  "description": "GitHub Action to detect Message ID collisions in NASA cFS missions",
+  "description": "GitHub Action and CLI to detect Message ID collisions in NASA cFS missions",
   "main": "dist/index.js",
+  "bin": {
+    "cfs-msgid-guard": "dist/cli.js"
+  },
   "scripts": {
-    "build": "ncc build src/index.ts -o dist --source-map --license licenses.txt",
+    "build": "npm run build:action && npm run build:cli",
+    "build:action": "ncc build src/index.ts -o dist --source-map --license licenses.txt",
+    "build:cli": "ncc build src/cli.ts -o dist/cli-tmp && printf '#!/usr/bin/env node\\n' | cat - dist/cli-tmp/index.js > dist/cli.js && rm -rf dist/cli-tmp",
     "test": "jest --verbose",
     "test:coverage": "jest --verbose --coverage",
-    "test:manual": "ts-node scripts/local-run.ts",
+    "test:manual": "node dist/cli.js --scan-path __tests__/fixtures --topicid-pattern '**/real/*_topicids.h'",
     "lint": "eslint src/ __tests__/",
     "typecheck": "tsc --noEmit"
   },

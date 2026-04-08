@@ -24,11 +24,14 @@ npm test
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all 177 tests with verbose output |
+| `npm test` | Run all 208 tests with verbose output |
 | `npm run test:coverage` | Run tests with 100% coverage enforcement |
 | `npm run lint` | ESLint check on `src/` and `__tests__/` |
 | `npm run typecheck` | TypeScript strict-mode type checking |
-| `npm run build` | Compile to `dist/index.js` via `@vercel/ncc` |
+| `npm run build` | Build both `dist/index.js` (action) and `dist/cli.js` (CLI) via `@vercel/ncc` |
+| `npm run build:action` | Build only the GitHub Action bundle |
+| `npm run build:cli` | Build only the CLI bundle |
+| `npm run test:manual` | Quick integration test against bundled NASA fixtures |
 
 ---
 
@@ -43,7 +46,8 @@ src/
   resolver.ts   Channel classification + MsgID computation
   detector.ts   Collision and near-miss detection
   reporter.ts   Job Summary, annotations, JSON artifact
-  index.ts      Entry point — wires the pipeline + handles @actions/core I/O
+  index.ts      GitHub Action entry point — @actions/core I/O
+  cli.ts        CLI entry point — terminal I/O, no @actions/core dependency
   types.ts      Shared TypeScript interfaces and enums
 ```
 
@@ -67,7 +71,7 @@ scanFiles() -> parseFiles() -> resolve() -> detect() -> report
 
 ### Coverage Requirement
 
-The project enforces **100% code coverage** on all library modules (`src/*.ts` except `index.ts`). The threshold is configured in `jest.config.js` and will fail the test run if any metric drops below 100%.
+The project enforces **100% code coverage** on all library modules (`src/*.ts` except `index.ts`). The CLI module (`cli.ts`) is included in coverage. The threshold is configured in `jest.config.js` and will fail the test run if any metric drops below 100%.
 
 ### Test Structure
 
@@ -78,6 +82,7 @@ __tests__/
   resolver.test.ts     Unit tests for resolver.ts
   detector.test.ts     Unit tests for detector.ts
   reporter.test.ts     Unit tests for reporter.ts
+  cli.test.ts          Unit tests for cli.ts (all flags, formats, error paths)
   integration.test.ts  End-to-end pipeline tests
   fixtures/
     real/              Real NASA cFS Draco headers (9 files, 42 topic IDs)
@@ -138,7 +143,7 @@ cFS is transitioning toward EDS/CCSDS-based configurations. To add EDS support:
 2. **Write tests first** for any new functionality
 3. Ensure `npm test`, `npm run lint`, and `npm run typecheck` all pass
 4. Ensure `npm run test:coverage` reports 100% coverage
-5. Run `npm run build` and commit the updated `dist/index.js`
+5. Run `npm run build` and commit the updated `dist/index.js` and `dist/cli.js`
 6. Open a PR with a clear description of the change and its motivation
 
 ### Commit Messages

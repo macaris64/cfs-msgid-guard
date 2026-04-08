@@ -1,4 +1,5 @@
-require('./sourcemap-register.js');/******/ (() => { // webpackBootstrap
+#!/usr/bin/env node
+/******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
 /***/ 4914:
@@ -24134,7 +24135,7 @@ const {
 } = __nccwpck_require__(8321)
 const { HeadersList } = __nccwpck_require__(986)
 const { Request, cloneRequest } = __nccwpck_require__(2546)
-const zlib = __nccwpck_require__(8522)
+const zlib = __nccwpck_require__(6141)
 const {
   bytesMatch,
   makePolicyContainer,
@@ -28084,7 +28085,7 @@ module.exports = {
 
 
 const { Transform } = __nccwpck_require__(7075)
-const zlib = __nccwpck_require__(8522)
+const zlib = __nccwpck_require__(6141)
 const { redirectStatusSet, referrerPolicySet: referrerPolicyTokens, badPortsSet } = __nccwpck_require__(2957)
 const { getGlobalOrigin } = __nccwpck_require__(3473)
 const { collectASequenceOfCodePoints, collectAnHTTPQuotedString, removeChars, parseMIMEType } = __nccwpck_require__(1666)
@@ -32473,7 +32474,7 @@ module.exports = {
 "use strict";
 
 
-const { createInflateRaw, Z_DEFAULT_WINDOWBITS } = __nccwpck_require__(8522)
+const { createInflateRaw, Z_DEFAULT_WINDOWBITS } = __nccwpck_require__(6141)
 const { isValidClientWindowBits } = __nccwpck_require__(971)
 const { MessageSizeExceededError } = __nccwpck_require__(5381)
 
@@ -59188,6 +59189,289 @@ module.exports = {
 
 /***/ }),
 
+/***/ 5581:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.parseCliArgs = parseCliArgs;
+exports.makeColors = makeColors;
+exports.toHex = toHex;
+exports.formatChannelTable = formatChannelTable;
+exports.runCli = runCli;
+const path = __importStar(__nccwpck_require__(6928));
+const fs = __importStar(__nccwpck_require__(9896));
+const parser_1 = __nccwpck_require__(7196);
+const parser_2 = __nccwpck_require__(7196);
+const resolver_1 = __nccwpck_require__(6209);
+const detector_1 = __nccwpck_require__(9157);
+const reporter_1 = __nccwpck_require__(5622);
+const scanner_1 = __nccwpck_require__(4105);
+const types_1 = __nccwpck_require__(8522);
+// ---------------------------------------------------------------------------
+// Argument Parsing
+// ---------------------------------------------------------------------------
+function getArg(args, flag, fallback) {
+    const idx = args.indexOf(flag);
+    if (idx !== -1 && idx + 1 < args.length)
+        return args[idx + 1];
+    return fallback;
+}
+function hasFlag(args, flag) {
+    return args.includes(flag);
+}
+function parseCliArgs(args) {
+    return {
+        scanPath: getArg(args, '--scan-path', '.'),
+        topicIdPattern: getArg(args, '--topicid-pattern', '**/*_topicids.h'),
+        msgIdPattern: getArg(args, '--msgid-pattern', '**/*_msgids.h'),
+        cmdBase: getArg(args, '--cmd-base', '0x1800'),
+        tlmBase: getArg(args, '--tlm-base', '0x0800'),
+        globalCmdBase: getArg(args, '--global-cmd-base', '0x1860'),
+        globalTlmBase: getArg(args, '--global-tlm-base', '0x0860'),
+        nearMissGap: parseInt(getArg(args, '--near-miss-gap', '0'), 10),
+        failOnCollision: !hasFlag(args, '--no-fail-on-collision'),
+        format: parseFormat(getArg(args, '--format', 'table')),
+        color: !hasFlag(args, '--no-color'),
+    };
+}
+function parseFormat(value) {
+    if (value === 'json' || value === 'summary')
+        return value;
+    return 'table';
+}
+function makeColors(enabled) {
+    if (!enabled) {
+        return { bold: '', dim: '', red: '', green: '', yellow: '', cyan: '', reset: '' };
+    }
+    return {
+        bold: '\x1b[1m',
+        dim: '\x1b[2m',
+        red: '\x1b[31m',
+        green: '\x1b[32m',
+        yellow: '\x1b[33m',
+        cyan: '\x1b[36m',
+        reset: '\x1b[0m',
+    };
+}
+const CHANNEL_LABELS = {
+    [types_1.Channel.PLATFORM_CMD]: 'Platform Command  (0x1800)',
+    [types_1.Channel.PLATFORM_TLM]: 'Platform Telemetry (0x0800)',
+    [types_1.Channel.GLOBAL_CMD]: 'Global Command    (0x1860)',
+    [types_1.Channel.GLOBAL_TLM]: 'Global Telemetry  (0x0860)',
+};
+const CHANNEL_COLORS_MAP = {
+    [types_1.Channel.PLATFORM_CMD]: 'cyan',
+    [types_1.Channel.PLATFORM_TLM]: 'green',
+    [types_1.Channel.GLOBAL_CMD]: 'yellow',
+    [types_1.Channel.GLOBAL_TLM]: 'yellow',
+};
+const CHANNEL_ORDER = [
+    types_1.Channel.PLATFORM_CMD,
+    types_1.Channel.PLATFORM_TLM,
+    types_1.Channel.GLOBAL_CMD,
+    types_1.Channel.GLOBAL_TLM,
+];
+function toHex(value, pad = 4) {
+    return '0x' + value.toString(16).toUpperCase().padStart(pad, '0');
+}
+// ---------------------------------------------------------------------------
+// Table Formatter
+// ---------------------------------------------------------------------------
+function formatChannelTable(resolved, collisionKeys, c) {
+    const collisionSet = new Set(collisionKeys);
+    const byChannel = new Map();
+    for (const r of resolved) {
+        const group = byChannel.get(r.channel) ?? [];
+        group.push(r);
+        byChannel.set(r.channel, group);
+    }
+    const lines = [];
+    for (const ch of CHANNEL_ORDER) {
+        const entries = byChannel.get(ch);
+        if (!entries || entries.length === 0)
+            continue;
+        const chColor = c[CHANNEL_COLORS_MAP[ch]];
+        lines.push(`${chColor}${c.bold}┌─ ${CHANNEL_LABELS[ch]} ─${'─'.repeat(Math.max(0, 44 - CHANNEL_LABELS[ch].length))}┐${c.reset}`);
+        lines.push(`${c.dim}  ${'App'.padEnd(14)} ${'Topic Name'.padEnd(38)} TopicID  MsgID   Tier${c.reset}`);
+        const sorted = [...entries].sort((a, b) => a.entry.value - b.entry.value);
+        for (const r of sorted) {
+            const app = (0, reporter_1.extractAppName)(r.entry).padEnd(14);
+            const topic = r.entry.name.padEnd(38);
+            const tid = toHex(r.entry.value);
+            const mid = toHex(r.msgId);
+            const tier = r.classifiedBy === 'MSGID_HEADER' ? 'T1' : `${c.dim}T2${c.reset}`;
+            const key = `${r.channel}:${r.entry.value}`;
+            const marker = collisionSet.has(key) ? ` ${c.red}${c.bold}!!${c.reset}` : '';
+            lines.push(`  ${app} ${topic} ${tid}   ${mid}   ${tier}${marker}`);
+        }
+        lines.push(`${chColor}${c.bold}└${'─'.repeat(61)}┘${c.reset}`);
+        lines.push('');
+    }
+    return lines.join('\n');
+}
+// ---------------------------------------------------------------------------
+// Main CLI Runner
+// ---------------------------------------------------------------------------
+async function runCli(args) {
+    const opts = parseCliArgs(args);
+    const c = makeColors(opts.color);
+    const baseOverrides = {};
+    if (opts.cmdBase !== '0x1800')
+        baseOverrides[types_1.Channel.PLATFORM_CMD] = (0, parser_2.parseNumericValue)(opts.cmdBase);
+    if (opts.tlmBase !== '0x0800')
+        baseOverrides[types_1.Channel.PLATFORM_TLM] = (0, parser_2.parseNumericValue)(opts.tlmBase);
+    if (opts.globalCmdBase !== '0x1860')
+        baseOverrides[types_1.Channel.GLOBAL_CMD] = (0, parser_2.parseNumericValue)(opts.globalCmdBase);
+    if (opts.globalTlmBase !== '0x0860')
+        baseOverrides[types_1.Channel.GLOBAL_TLM] = (0, parser_2.parseNumericValue)(opts.globalTlmBase);
+    console.log(`${c.bold}cfs-msgid-guard${c.reset} — Message ID Collision Detector\n`);
+    // -- Scan -----------------------------------------------------------------
+    console.log(`${c.dim}[1/5]${c.reset} ${c.bold}Scanning${c.reset} ${opts.scanPath}`);
+    let scanResult;
+    try {
+        scanResult = await (0, scanner_1.scanFiles)([opts.scanPath], opts.topicIdPattern, opts.msgIdPattern);
+    }
+    catch (err) {
+        console.error(`${c.red}Scan failed: ${err instanceof Error ? err.message : err}${c.reset}`);
+        return 2;
+    }
+    console.log(`      Found: ${scanResult.topicIdFiles.length} topic ID files, ` +
+        `${scanResult.msgIdFiles.length} msgid files, ` +
+        `${scanResult.msgIdValueFiles.length} msgid_values files`);
+    if (scanResult.baseMappingFile) {
+        console.log(`      Base mapping: ${path.basename(scanResult.baseMappingFile)}`);
+    }
+    if (scanResult.topicIdFiles.length === 0) {
+        console.error(`${c.red}No topic ID files found. Check --scan-path and --topicid-pattern.${c.reset}`);
+        return 1;
+    }
+    // -- Parse ----------------------------------------------------------------
+    console.log(`${c.dim}[2/5]${c.reset} ${c.bold}Parsing${c.reset} topic ID definitions...`);
+    const parseResult = (0, parser_1.parseFiles)(scanResult.topicIdFiles);
+    const allEntries = parseResult.files.flatMap(f => f.entries);
+    console.log(`      ${allEntries.length} definitions from ${parseResult.files.length} files`);
+    // -- Resolve --------------------------------------------------------------
+    console.log(`${c.dim}[3/5]${c.reset} ${c.bold}Resolving${c.reset} channels and computing MsgIDs...`);
+    const resolved = (0, resolver_1.resolve)(allEntries, scanResult.msgIdFiles, scanResult.msgIdValueFiles, scanResult.baseMappingFile, baseOverrides);
+    const baseMappingContent = scanResult.baseMappingFile
+        ? fs.readFileSync(scanResult.baseMappingFile, 'utf-8')
+        : null;
+    const bases = (0, resolver_1.extractBaseAddresses)(baseMappingContent, baseOverrides);
+    const tier1 = resolved.filter(r => r.classifiedBy === 'MSGID_HEADER').length;
+    const tier2 = resolved.filter(r => r.classifiedBy === 'HEURISTIC').length;
+    console.log(`      ${resolved.length} resolved (${tier1} header, ${tier2} heuristic)`);
+    // -- Detect ---------------------------------------------------------------
+    console.log(`${c.dim}[4/5]${c.reset} ${c.bold}Detecting${c.reset} collisions (near-miss gap: ${opts.nearMissGap})...`);
+    const result = (0, detector_1.detect)(resolved, opts.nearMissGap);
+    if (result.collisions.length === 0) {
+        console.log(`      ${c.green}0 collisions${c.reset}`);
+    }
+    else {
+        console.log(`      ${c.red}${c.bold}${result.collisions.length} COLLISION(S)${c.reset}`);
+    }
+    if (result.nearMisses.length > 0) {
+        console.log(`      ${c.yellow}${result.nearMisses.length} near-miss warning(s)${c.reset}`);
+    }
+    // -- Report ---------------------------------------------------------------
+    console.log(`${c.dim}[5/5]${c.reset} ${c.bold}Report${c.reset}\n`);
+    if (opts.format === 'table') {
+        const table = formatChannelTable(resolved, result.collisions.map(col => `${col.channel}:${col.topicIdValue}`), c);
+        console.log(table);
+    }
+    if (result.collisions.length > 0) {
+        console.log(`${c.red}${c.bold}  COLLISIONS${c.reset}`);
+        for (const col of result.collisions) {
+            console.log(`  ${c.red}${col.channel}  TopicID=${toHex(col.topicIdValue)}  MsgID=${toHex(col.msgId)}${c.reset}`);
+            for (const e of col.entries) {
+                console.log(`    ${c.red}→ ${(0, reporter_1.extractAppName)(e)} (${e.name}) at ${path.basename(e.filePath)}:${e.line}${c.reset}`);
+            }
+        }
+        console.log();
+    }
+    if (result.nearMisses.length > 0) {
+        console.log(`${c.yellow}${c.bold}Near-Miss Warnings:${c.reset}`);
+        for (const nm of result.nearMisses) {
+            console.log(`  ${c.yellow}${nm.channel}: ${nm.entryA.entry.name} (${toHex(nm.entryA.entry.value)}) ↔ ` +
+                `${nm.entryB.entry.name} (${toHex(nm.entryB.entry.value)}) — gap: ${nm.gap}${c.reset}`);
+        }
+        console.log();
+    }
+    if (opts.format === 'summary') {
+        console.log((0, reporter_1.generateJobSummary)(result, bases));
+    }
+    if (opts.format === 'json') {
+        console.log((0, reporter_1.generateJsonArtifact)(result, bases));
+    }
+    // -- Status line ----------------------------------------------------------
+    const hasCollisions = result.collisions.length > 0;
+    const status = hasCollisions
+        ? `${c.red}${c.bold}FAIL${c.reset} — ${result.collisions.length} collision(s) in ${resolved.length} topics`
+        : `${c.green}${c.bold}PASS${c.reset} — ${resolved.length} topics, 0 collisions`;
+    console.log(`  Result: ${status}`);
+    if (hasCollisions && opts.failOnCollision)
+        return 1;
+    return 0;
+}
+// ---------------------------------------------------------------------------
+// Entry point — only when executed directly (not imported by tests)
+// ---------------------------------------------------------------------------
+/* istanbul ignore next -- entry-point wiring, tested via npm run test:manual */
+if (require.main === require.cache[eval('__filename')]) {
+    // Suppress @actions/glob ::debug:: workflow commands in terminal output
+    const origWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk, encodingOrCb, cb) => {
+        if (typeof chunk === 'string' && chunk.startsWith('::debug::'))
+            return true;
+        if (typeof encodingOrCb === 'function')
+            return origWrite(chunk, undefined, encodingOrCb);
+        return origWrite(chunk, encodingOrCb, cb);
+    });
+    runCli(process.argv.slice(2))
+        .then(code => process.exit(code))
+        .catch(err => {
+        console.error(`Fatal: ${err.message}`);
+        process.exit(2);
+    });
+}
+
+
+/***/ }),
+
 /***/ 9157:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
@@ -59197,7 +59481,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.detectCollisions = detectCollisions;
 exports.detectNearMisses = detectNearMisses;
 exports.detect = detect;
-const types_1 = __nccwpck_require__(6141);
+const types_1 = __nccwpck_require__(8522);
 /**
  * Detect topic ID collisions within each of the 4 MsgID channels.
  *
@@ -59299,180 +59583,6 @@ function collisionComparator(a, b) {
     if (channelDiff !== 0)
         return channelDiff;
     return a.topicIdValue - b.topicIdValue;
-}
-
-
-/***/ }),
-
-/***/ 9407:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
-
-"use strict";
-
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
-};
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.generateJsonArtifact = exports.emitAnnotations = exports.writeJobSummary = exports.generateJobSummary = exports.extractAppName = exports.detect = exports.detectNearMisses = exports.detectCollisions = exports.resolve = exports.resolveTopicIds = exports.classifyByHeuristic = exports.buildChannelMap = exports.extractBaseAddresses = exports.scanFiles = exports.parseNumericValue = exports.parseFileContent = exports.parseFiles = exports.parseFile = void 0;
-exports.run = run;
-const core = __importStar(__nccwpck_require__(7484));
-const parser_1 = __nccwpck_require__(7196);
-const parser_2 = __nccwpck_require__(7196);
-const scanner_1 = __nccwpck_require__(4105);
-const resolver_1 = __nccwpck_require__(6209);
-const detector_1 = __nccwpck_require__(9157);
-const reporter_1 = __nccwpck_require__(5622);
-const types_1 = __nccwpck_require__(6141);
-async function run() {
-    try {
-        // -- Parse inputs -------------------------------------------------------
-        const scanPaths = core
-            .getInput('scan-paths')
-            .split(',')
-            .map(s => s.trim())
-            .filter(Boolean);
-        const topicIdPattern = core.getInput('topicid-pattern') || '**/*_topicids.h';
-        const msgIdPattern = core.getInput('msgid-pattern') || '**/*_msgids.h';
-        const cmdBase = core.getInput('cmd-base');
-        const tlmBase = core.getInput('tlm-base');
-        const globalCmdBase = core.getInput('global-cmd-base');
-        const globalTlmBase = core.getInput('global-tlm-base');
-        const baseOverrides = {};
-        if (cmdBase)
-            baseOverrides[types_1.Channel.PLATFORM_CMD] = (0, parser_1.parseNumericValue)(cmdBase);
-        if (tlmBase)
-            baseOverrides[types_1.Channel.PLATFORM_TLM] = (0, parser_1.parseNumericValue)(tlmBase);
-        if (globalCmdBase)
-            baseOverrides[types_1.Channel.GLOBAL_CMD] = (0, parser_1.parseNumericValue)(globalCmdBase);
-        if (globalTlmBase)
-            baseOverrides[types_1.Channel.GLOBAL_TLM] = (0, parser_1.parseNumericValue)(globalTlmBase);
-        const failOnCollision = core.getInput('fail-on-collision').toLowerCase() !== 'false';
-        const nearMissGap = parseInt(core.getInput('near-miss-gap') || '0', 10);
-        const reportFormat = core.getInput('report-format') || 'both';
-        core.info(`Scanning paths: ${scanPaths.join(', ') || '.'}`);
-        core.info(`Topic ID pattern: ${topicIdPattern}`);
-        core.info(`Near-miss gap: ${nearMissGap}`);
-        // -- Scan ---------------------------------------------------------------
-        const scanResult = await (0, scanner_1.scanFiles)(scanPaths, topicIdPattern, msgIdPattern);
-        core.info(`Discovered: ${scanResult.topicIdFiles.length} topic ID files, ` +
-            `${scanResult.msgIdFiles.length} msgid files, ` +
-            `${scanResult.msgIdValueFiles.length} msgid_values files`);
-        if (scanResult.topicIdFiles.length === 0) {
-            core.warning('No topic ID header files found. Check scan-paths and topicid-pattern inputs.');
-            core.setOutput('collision-count', '0');
-            core.setOutput('has-collisions', 'false');
-            core.setOutput('allocation-map', '{}');
-            return;
-        }
-        // -- Parse --------------------------------------------------------------
-        const parseResult = (0, parser_2.parseFiles)(scanResult.topicIdFiles);
-        const allEntries = parseResult.files.flatMap(f => f.entries);
-        core.info(`Parsed ${allEntries.length} topic ID definitions from ${parseResult.files.length} files`);
-        // -- Resolve ------------------------------------------------------------
-        const resolved = (0, resolver_1.resolve)(allEntries, scanResult.msgIdFiles, scanResult.msgIdValueFiles, scanResult.baseMappingFile, baseOverrides);
-        // -- Detect -------------------------------------------------------------
-        const detectionResult = (0, detector_1.detect)(resolved, nearMissGap);
-        core.info(`Detection complete: ${detectionResult.collisions.length} collisions, ` +
-            `${detectionResult.nearMisses.length} near-misses`);
-        // -- Extract bases for reporting ----------------------------------------
-        const bases = {
-            [types_1.Channel.PLATFORM_CMD]: baseOverrides[types_1.Channel.PLATFORM_CMD] ?? 0x1800,
-            [types_1.Channel.PLATFORM_TLM]: baseOverrides[types_1.Channel.PLATFORM_TLM] ?? 0x0800,
-            [types_1.Channel.GLOBAL_CMD]: baseOverrides[types_1.Channel.GLOBAL_CMD] ?? 0x1860,
-            [types_1.Channel.GLOBAL_TLM]: baseOverrides[types_1.Channel.GLOBAL_TLM] ?? 0x0860,
-        };
-        // -- Report -------------------------------------------------------------
-        (0, reporter_1.emitAnnotations)(detectionResult);
-        if (reportFormat === 'summary' || reportFormat === 'both') {
-            const markdown = (0, reporter_1.generateJobSummary)(detectionResult, bases);
-            await (0, reporter_1.writeJobSummary)(markdown);
-        }
-        let jsonArtifact = '{}';
-        if (reportFormat === 'json' || reportFormat === 'both') {
-            jsonArtifact = (0, reporter_1.generateJsonArtifact)(detectionResult, bases);
-        }
-        // -- Set outputs --------------------------------------------------------
-        core.setOutput('collision-count', String(detectionResult.collisions.length));
-        core.setOutput('has-collisions', String(detectionResult.collisions.length > 0));
-        core.setOutput('allocation-map', jsonArtifact);
-        // -- Fail control -------------------------------------------------------
-        if (failOnCollision && detectionResult.collisions.length > 0) {
-            core.setFailed(`${detectionResult.collisions.length} MsgID collision(s) detected. ` +
-                'See Job Summary and annotations for details.');
-        }
-    }
-    catch (error) {
-        if (error instanceof Error) {
-            core.setFailed(error.message);
-        }
-        else {
-            core.setFailed('An unexpected error occurred');
-        }
-    }
-}
-// --- Library re-exports for programmatic usage -----------------------------
-var parser_3 = __nccwpck_require__(7196);
-Object.defineProperty(exports, "parseFile", ({ enumerable: true, get: function () { return parser_3.parseFile; } }));
-Object.defineProperty(exports, "parseFiles", ({ enumerable: true, get: function () { return parser_3.parseFiles; } }));
-Object.defineProperty(exports, "parseFileContent", ({ enumerable: true, get: function () { return parser_3.parseFileContent; } }));
-Object.defineProperty(exports, "parseNumericValue", ({ enumerable: true, get: function () { return parser_3.parseNumericValue; } }));
-var scanner_2 = __nccwpck_require__(4105);
-Object.defineProperty(exports, "scanFiles", ({ enumerable: true, get: function () { return scanner_2.scanFiles; } }));
-var resolver_2 = __nccwpck_require__(6209);
-Object.defineProperty(exports, "extractBaseAddresses", ({ enumerable: true, get: function () { return resolver_2.extractBaseAddresses; } }));
-Object.defineProperty(exports, "buildChannelMap", ({ enumerable: true, get: function () { return resolver_2.buildChannelMap; } }));
-Object.defineProperty(exports, "classifyByHeuristic", ({ enumerable: true, get: function () { return resolver_2.classifyByHeuristic; } }));
-Object.defineProperty(exports, "resolveTopicIds", ({ enumerable: true, get: function () { return resolver_2.resolveTopicIds; } }));
-Object.defineProperty(exports, "resolve", ({ enumerable: true, get: function () { return resolver_2.resolve; } }));
-var detector_2 = __nccwpck_require__(9157);
-Object.defineProperty(exports, "detectCollisions", ({ enumerable: true, get: function () { return detector_2.detectCollisions; } }));
-Object.defineProperty(exports, "detectNearMisses", ({ enumerable: true, get: function () { return detector_2.detectNearMisses; } }));
-Object.defineProperty(exports, "detect", ({ enumerable: true, get: function () { return detector_2.detect; } }));
-var reporter_2 = __nccwpck_require__(5622);
-Object.defineProperty(exports, "extractAppName", ({ enumerable: true, get: function () { return reporter_2.extractAppName; } }));
-Object.defineProperty(exports, "generateJobSummary", ({ enumerable: true, get: function () { return reporter_2.generateJobSummary; } }));
-Object.defineProperty(exports, "writeJobSummary", ({ enumerable: true, get: function () { return reporter_2.writeJobSummary; } }));
-Object.defineProperty(exports, "emitAnnotations", ({ enumerable: true, get: function () { return reporter_2.emitAnnotations; } }));
-Object.defineProperty(exports, "generateJsonArtifact", ({ enumerable: true, get: function () { return reporter_2.generateJsonArtifact; } }));
-__exportStar(__nccwpck_require__(6141), exports);
-// --- Entry point -----------------------------------------------------------
-// Only auto-execute when running inside GitHub Actions.
-// Library consumers and the CLI entry point import without side effects.
-if (process.env.GITHUB_ACTIONS) {
-    run();
 }
 
 
@@ -59655,7 +59765,7 @@ exports.emitAnnotations = emitAnnotations;
 exports.generateJsonArtifact = generateJsonArtifact;
 const core = __importStar(__nccwpck_require__(7484));
 const path = __importStar(__nccwpck_require__(6928));
-const types_1 = __nccwpck_require__(6141);
+const types_1 = __nccwpck_require__(8522);
 const CHANNEL_LABELS = {
     [types_1.Channel.PLATFORM_CMD]: 'Platform Command',
     [types_1.Channel.PLATFORM_TLM]: 'Platform Telemetry',
@@ -59954,7 +60064,7 @@ exports.resolveTopicIds = resolveTopicIds;
 exports.resolve = resolve;
 const fs = __importStar(__nccwpck_require__(9896));
 const parser_1 = __nccwpck_require__(7196);
-const types_1 = __nccwpck_require__(6141);
+const types_1 = __nccwpck_require__(8522);
 /**
  * Default base addresses matching the cFS Draco bundle.
  * Used when no mapping file is found and no overrides are provided.
@@ -60238,7 +60348,7 @@ async function globUnique(pattern) {
 
 /***/ }),
 
-/***/ 6141:
+/***/ 8522:
 /***/ ((__unused_webpack_module, exports) => {
 
 "use strict";
@@ -60524,7 +60634,7 @@ module.exports = require("node:worker_threads");
 
 /***/ }),
 
-/***/ 8522:
+/***/ 6141:
 /***/ ((module) => {
 
 "use strict";
@@ -62311,9 +62421,8 @@ module.exports = parseParams
 /******/ 	// startup
 /******/ 	// Load entry module and return exports
 /******/ 	// This entry module is referenced by other modules so it can't be inlined
-/******/ 	var __webpack_exports__ = __nccwpck_require__(9407);
+/******/ 	var __webpack_exports__ = __nccwpck_require__(5581);
 /******/ 	module.exports = __webpack_exports__;
 /******/ 	
 /******/ })()
 ;
-//# sourceMappingURL=index.js.map
