@@ -4,7 +4,7 @@ import { parseFiles } from './parser';
 import { parseNumericValue } from './parser';
 import { resolve, extractBaseAddresses } from './resolver';
 import { detect } from './detector';
-import { generateJobSummary, generateJsonArtifact, extractAppName } from './reporter';
+import { generateJobSummary, generateJsonArtifact, generateAuditReport, extractAppName } from './reporter';
 import { scanFiles } from './scanner';
 import { BaseAddresses, Channel, ResolvedMsgId } from './types';
 
@@ -24,6 +24,8 @@ export interface CliOptions {
   failOnCollision: boolean;
   format: 'table' | 'json' | 'summary';
   color: boolean;
+  report: boolean;
+  expectedCount: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -53,6 +55,10 @@ export function parseCliArgs(args: string[]): CliOptions {
     failOnCollision: !hasFlag(args, '--no-fail-on-collision'),
     format: parseFormat(getArg(args, '--format', 'table')),
     color: !hasFlag(args, '--no-color'),
+    report: hasFlag(args, '--report'),
+    expectedCount: hasFlag(args, '--expected-count')
+      ? parseInt(getArg(args, '--expected-count', '0'), 10)
+      : null,
   };
 }
 
@@ -293,6 +299,12 @@ export async function runCli(args: string[]): Promise<number> {
     : `${c.green}${c.bold}PASS${c.reset} — ${resolved.length} topics, 0 collisions`;
 
   console.log(`  Result: ${status}`);
+
+  if (opts.report) {
+    const reportText = generateAuditReport(result, bases, opts.scanPath, opts.expectedCount);
+    fs.writeFileSync('collusion-report.txt', reportText, 'utf-8');
+    console.log(`\n  Report written to collusion-report.txt`);
+  }
 
   if (hasCollisions && opts.failOnCollision) return 1;
   return 0;

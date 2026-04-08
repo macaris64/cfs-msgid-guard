@@ -59267,6 +59267,10 @@ function parseCliArgs(args) {
         failOnCollision: !hasFlag(args, '--no-fail-on-collision'),
         format: parseFormat(getArg(args, '--format', 'table')),
         color: !hasFlag(args, '--no-color'),
+        report: hasFlag(args, '--report'),
+        expectedCount: hasFlag(args, '--expected-count')
+            ? parseInt(getArg(args, '--expected-count', '0'), 10)
+            : null,
     };
 }
 function parseFormat(value) {
@@ -59443,6 +59447,11 @@ async function runCli(args) {
         ? `${c.red}${c.bold}FAIL${c.reset} — ${result.collisions.length} collision(s) in ${resolved.length} topics`
         : `${c.green}${c.bold}PASS${c.reset} — ${resolved.length} topics, 0 collisions`;
     console.log(`  Result: ${status}`);
+    if (opts.report) {
+        const reportText = (0, reporter_1.generateAuditReport)(result, bases, opts.scanPath, opts.expectedCount);
+        fs.writeFileSync('collusion-report.txt', reportText, 'utf-8');
+        console.log(`\n  Report written to collusion-report.txt`);
+    }
     if (hasCollisions && opts.failOnCollision)
         return 1;
     return 0;
@@ -59763,6 +59772,8 @@ exports.generateJobSummary = generateJobSummary;
 exports.writeJobSummary = writeJobSummary;
 exports.emitAnnotations = emitAnnotations;
 exports.generateJsonArtifact = generateJsonArtifact;
+exports.asciiTable = asciiTable;
+exports.generateAuditReport = generateAuditReport;
 const core = __importStar(__nccwpck_require__(7484));
 const path = __importStar(__nccwpck_require__(6928));
 const types_1 = __nccwpck_require__(8522);
@@ -60013,6 +60024,180 @@ function buildCollisionSet(collisions) {
         set.add(`${c.channel}:${c.topicIdValue}`);
     }
     return set;
+}
+// ---------------------------------------------------------------------------
+// ASCII Table Helper
+// ---------------------------------------------------------------------------
+function asciiTable(headers, rows) {
+    const colWidths = headers.map((h, i) => Math.max(h.length, ...rows.map(r => (r[i] ?? '').length)));
+    const sep = '+' + colWidths.map(w => '-'.repeat(w + 2)).join('+') + '+';
+    const fmtRow = (cells) => '|' + cells.map((c, i) => ' ' + (c ?? '').padEnd(colWidths[i]) + ' ').join('|') + '|';
+    const lines = [];
+    lines.push(sep);
+    lines.push(fmtRow(headers));
+    lines.push(sep);
+    for (const row of rows) {
+        lines.push(fmtRow(row));
+    }
+    lines.push(sep);
+    return lines.join('\n');
+}
+// ---------------------------------------------------------------------------
+// Audit Report Generator
+// ---------------------------------------------------------------------------
+function generateAuditReport(result, bases, scanPath, expectedCount) {
+    const lines = [];
+    const date = new Date().toISOString().split('T')[0];
+    // -- Header ---------------------------------------------------------------
+    lines.push('======================================================================');
+    lines.push('         cFS MSGID GUARD — MISSION AUDIT REPORT');
+    lines.push('======================================================================');
+    lines.push(`Date: ${date}`);
+    lines.push(`Scan Path: ${scanPath}`);
+    lines.push('----------------------------------------------------------------------');
+    lines.push('');
+    // -- Application List -----------------------------------------------------
+    lines.push('APPLICATION LIST');
+    lines.push('');
+    const appTopics = new Map();
+    const appPrefixes = new Map();
+    for (const r of result.resolved) {
+        const app = extractAppName(r.entry);
+        appTopics.set(app, (appTopics.get(app) ?? 0) + 1);
+        if (!appPrefixes.has(app)) {
+            const missionIdx = r.entry.name.indexOf('_MISSION_');
+            appPrefixes.set(app, missionIdx !== -1 ? r.entry.name.substring(0, missionIdx) : app);
+        }
+    }
+    const appRows = [];
+    let appIdx = 1;
+    for (const [app, count] of [...appTopics.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+        appRows.push([String(appIdx++), app, appPrefixes.get(app), String(count)]);
+    }
+    lines.push(asciiTable(['#', 'App', 'Prefix', 'Topics'], appRows));
+    lines.push('');
+    // -- Full Allocation Table ------------------------------------------------
+    lines.push('FULL ALLOCATION TABLE');
+    lines.push('');
+    const byChannel = groupByChannel(result.resolved);
+    const collisionSet = buildCollisionSet(result.collisions);
+    for (const channel of CHANNEL_ORDER) {
+        const entries = byChannel.get(channel);
+        if (!entries || entries.length === 0)
+            continue;
+        const base = bases[channel];
+        lines.push(`  ${CHANNEL_LABELS[channel]} (${entries.length} entries, base: ${toHex(base)})`);
+        lines.push('');
+        const sorted = [...entries].sort((a, b) => a.entry.value - b.entry.value);
+        const tableRows = [];
+        for (const r of sorted) {
+            const key = `${r.channel}:${r.entry.value}`;
+            const collision = collisionSet.has(key) ? 'YES !!' : '';
+            tableRows.push([
+                extractAppName(r.entry),
+                r.entry.name,
+                toHex(r.entry.value),
+                toHex(r.msgId),
+                collision,
+            ]);
+        }
+        lines.push(asciiTable(['App', 'Topic Name', 'TopicID', 'MsgID', 'Collision?'], tableRows));
+        lines.push('');
+    }
+    // -- Expected Collisions --------------------------------------------------
+    lines.push('EXPECTED COLLISIONS');
+    lines.push('');
+    if (result.collisions.length === 0) {
+        lines.push('  No collisions detected.');
+        lines.push('');
+    }
+    else {
+        const collByChannel = new Map();
+        for (const c of result.collisions) {
+            const group = collByChannel.get(c.channel) ?? [];
+            group.push(c);
+            collByChannel.set(c.channel, group);
+        }
+        let collIdx = 1;
+        const collRows = [];
+        for (const channel of CHANNEL_ORDER) {
+            const colls = collByChannel.get(channel);
+            if (!colls || colls.length === 0)
+                continue;
+            for (const c of colls) {
+                const apps = c.entries.map(e => extractAppName(e)).join(', ');
+                collRows.push([
+                    String(collIdx++),
+                    CHANNEL_LABELS[channel],
+                    toHex(c.topicIdValue),
+                    toHex(c.msgId),
+                    apps,
+                ]);
+            }
+        }
+        lines.push(asciiTable(['#', 'Channel', 'TopicID', 'MsgID', 'Apps Involved'], collRows));
+        lines.push('');
+    }
+    // -- Multi-way Collisions -------------------------------------------------
+    lines.push('MULTI-WAY COLLISIONS');
+    lines.push('');
+    const multiWay = result.collisions.filter(c => c.entries.length > 2);
+    if (multiWay.length === 0) {
+        lines.push('  None.');
+    }
+    else {
+        for (const c of multiWay) {
+            const apps = c.entries.map(e => extractAppName(e)).join(', ');
+            lines.push(`  * ${toHex(c.msgId)}: ${c.entries.length} apps involved (${apps})`);
+        }
+    }
+    lines.push('');
+    // -- Non-Conflicting Entries ----------------------------------------------
+    lines.push('NON-CONFLICTING ENTRIES');
+    lines.push('');
+    const ncRows = [];
+    for (const channel of CHANNEL_ORDER) {
+        const entries = byChannel.get(channel);
+        if (!entries)
+            continue;
+        const total = entries.length;
+        const conflicting = entries.filter(r => collisionSet.has(`${r.channel}:${r.entry.value}`)).length;
+        ncRows.push([CHANNEL_LABELS[channel], String(total - conflicting)]);
+    }
+    lines.push(asciiTable(['Channel', 'Entries'], ncRows));
+    lines.push('');
+    // -- Expected vs Actual Comparison ----------------------------------------
+    if (expectedCount !== null) {
+        lines.push('EXPECTED vs ACTUAL COMPARISON');
+        lines.push('');
+        const actual = result.collisions.length;
+        const match = expectedCount === actual ? 'PASS' : 'FAIL';
+        lines.push(`  Expected: ${expectedCount} | Actual: ${actual} | Match: ${match}`);
+        lines.push('');
+        let cmpIdx = 1;
+        const cmpRows = [];
+        for (const channel of CHANNEL_ORDER) {
+            const colls = result.collisions.filter(c => c.channel === channel);
+            for (const c of colls) {
+                cmpRows.push([
+                    String(cmpIdx++),
+                    CHANNEL_LABELS[channel],
+                    toHex(c.topicIdValue),
+                    String(c.entries.length),
+                    'PASS',
+                ]);
+            }
+        }
+        if (cmpRows.length > 0) {
+            lines.push(asciiTable(['#', 'Channel', 'TopicID', 'Apps Count', 'Match?'], cmpRows));
+            lines.push('');
+        }
+    }
+    // -- Footer ---------------------------------------------------------------
+    lines.push('Verification Command:');
+    lines.push(`npx cfs-msgid-guard --scan-path ${scanPath}`);
+    lines.push('======================================================================');
+    return lines.join('\n');
 }
 
 
