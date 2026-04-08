@@ -204,7 +204,7 @@ describe('generateAuditReport — non-MISSION entries', () => {
 // ---------------------------------------------------------------------------
 
 const REPORT_PATH = path.resolve(__dirname, '..', 'collusion-report.txt');
-const APPS_DIR = path.resolve(__dirname, '..', '..', 'apps');
+const FIXTURES_DIR = path.resolve(__dirname, 'fixtures');
 
 function cleanupReport(): void {
   try { fs.unlinkSync(REPORT_PATH); } catch { /* noop */ }
@@ -219,7 +219,9 @@ describe('CLI --report integration', () => {
 
   it('--report writes collusion-report.txt', async () => {
     await runCli([
-      '--scan-path', APPS_DIR,
+      '--scan-path', FIXTURES_DIR,
+      '--topicid-pattern', '**/real/*_topicids.h',
+      '--msgid-pattern', '**/real/*_msgids.h',
       '--report',
       '--no-fail-on-collision',
       '--no-color',
@@ -234,7 +236,9 @@ describe('CLI --report integration', () => {
 
   it('--report --expected-count includes comparison section', async () => {
     await runCli([
-      '--scan-path', APPS_DIR,
+      '--scan-path', FIXTURES_DIR,
+      '--topicid-pattern', '**/real/*_topicids.h',
+      '--msgid-pattern', '**/real/*_msgids.h',
       '--report',
       '--expected-count', '20',
       '--no-fail-on-collision',
