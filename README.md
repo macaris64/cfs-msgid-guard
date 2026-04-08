@@ -3,7 +3,7 @@
 **Prevent silent Message ID collisions in NASA cFS missions.**
 
 [![CI](https://github.com/macaris64/cfs-msgid-guard/actions/workflows/ci.yml/badge.svg)](https://github.com/macaris64/cfs-msgid-guard/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)](https://github.com/YOUR_USERNAME/cfs-msgid-guard)
+[![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)](https://github.com/macaris64/cfs-msgid-guard)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-cFS%20MsgID%20Guard-blue?logo=github)](https://github.com/marketplace/actions/cfs-msgid-guard)
 
@@ -113,7 +113,7 @@ jobs:
         with:
           submodules: true
 
-      - uses: YOUR_USERNAME/cfs-msgid-guard@v1
+      - uses: macaris64/cfs-msgid-guard@v1
         with:
           fail-on-collision: 'true'
           near-miss-gap: '2'
@@ -243,7 +243,7 @@ Exit codes: `0` = clean, `1` = collisions found (or no files), `2` = fatal error
 If your mission uses non-standard base addresses:
 
 ```yaml
-- uses: YOUR_USERNAME/cfs-msgid-guard@v1
+- uses: macaris64/cfs-msgid-guard@v1
   with:
     cmd-base: '0x2000'
     tlm-base: '0x1000'
@@ -256,7 +256,7 @@ If your mission uses non-standard base addresses:
 To detect collisions without failing the build:
 
 ```yaml
-- uses: YOUR_USERNAME/cfs-msgid-guard@v1
+- uses: macaris64/cfs-msgid-guard@v1
   with:
     fail-on-collision: 'false'
     near-miss-gap: '3'
@@ -267,7 +267,7 @@ To detect collisions without failing the build:
 Use the `allocation-map` output in subsequent workflow steps:
 
 ```yaml
-- uses: YOUR_USERNAME/cfs-msgid-guard@v1
+- uses: macaris64/cfs-msgid-guard@v1
   id: guard
   with:
     report-format: 'json'
