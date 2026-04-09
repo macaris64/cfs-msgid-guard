@@ -1,112 +1,42 @@
-# cFS MsgID Guard
+# cFS MsgID Guard (`cfs-msgid-guard`)
 
-**Prevent silent Message ID collisions in NASA cFS missions.**
+Prevent **silent runtime failures** caused by cFS **MsgID collisions**.
 
 [![CI](https://github.com/macaris64/cfs-msgid-guard/actions/workflows/ci.yml/badge.svg)](https://github.com/macaris64/cfs-msgid-guard/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)](https://github.com/macaris64/cfs-msgid-guard)
+[![npm](https://img.shields.io/npm/v/cfs-msgid-guard)](https://www.npmjs.com/package/cfs-msgid-guard)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-cFS%20MsgID%20Guard-blue?logo=github)](https://github.com/marketplace/actions/cfs-msgid-guard)
 
----
-
-## The Problem
-
-NASA's core Flight System (cFS) routes all inter-application communication through a Software Bus using **Message IDs**. Each application defines numeric **Topic IDs** in header files (`*_topicids.h`), which are combined with base addresses to produce final MsgIDs:
-
-```
-Final MsgID = Base Address | Topic ID
-```
-
-Topic IDs are scattered across dozens of header files in separate submodules with **no central registry and no collision check**. A developer who creates a new app and picks a topic ID already in use by another app gets a **silent runtime failure** — messages route to the wrong application with zero build errors or warnings.
-
-**cfs-msgid-guard** scans your entire cFS mission, computes every MsgID across all four channels, detects collisions, and reports them as PR annotations before they reach flight hardware.
+cFS apps define numeric **Topic IDs** across many `*_topicids.h` headers. If two apps reuse the same Topic ID **in the same channel**, the computed MsgIDs collide and the Software Bus can misroute messages **with no compile-time error**. `cfs-msgid-guard` scans your mission, computes MsgIDs, and reports collisions as **PR annotations** and a **Job Summary**.
 
 ---
 
-## How MsgID Calculation Works
+## Quick start (30 seconds)
 
-cFS uses a 4-channel model. Each channel has a base address, and the final MsgID is computed by OR-ing the base with the topic ID:
+### Run locally (no install)
 
-```mermaid
-graph LR
-    subgraph topicIds [Topic IDs]
-        T1["ES_CMD = 6"]
-        T2["ES_HK_TLM = 0"]
-        T3["TIME_DATA_CMD = 0"]
-    end
-
-    subgraph bases [Base Addresses]
-        B1["PLATFORM_CMD = 0x1800"]
-        B2["PLATFORM_TLM = 0x0800"]
-        B3["GLOBAL_CMD = 0x1860"]
-        B4["GLOBAL_TLM = 0x0860"]
-    end
-
-    subgraph msgIds [Final MsgIDs]
-        M1["0x1806"]
-        M2["0x0800"]
-        M3["0x1860"]
-    end
-
-    T1 -->|"0x1800 OR 6"| M1
-    T2 -->|"0x0800 OR 0"| M2
-    T3 -->|"0x1860 OR 0"| M3
+```bash
+npx cfs-msgid-guard --scan-path .
 ```
 
-| Channel | Base | Purpose |
-|---------|------|---------|
-| `PLATFORM_CMD` | `0x1800` | Instance-specific commands |
-| `PLATFORM_TLM` | `0x0800` | Instance-specific telemetry |
-| `GLOBAL_CMD` | `0x1860` | Broadcast commands (e.g., CFE_TIME) |
-| `GLOBAL_TLM` | `0x0860` | Broadcast telemetry |
+### Install (dev dependency)
 
-A collision occurs when two different applications claim the **same topic ID** within the **same channel**, producing identical MsgIDs and causing the Software Bus to misroute messages.
-
----
-
-## Architecture
-
-cfs-msgid-guard operates as a 5-phase pipeline:
-
-```mermaid
-flowchart LR
-    A[Scan] --> B[Parse]
-    B --> C[Resolve]
-    C --> D[Detect]
-    D --> E[Report]
+```bash
+npm i -D cfs-msgid-guard
+npx cfs-msgid-guard --scan-path .
 ```
 
-| Phase | Module | Description |
-|-------|--------|-------------|
-| **Scan** | `scanner.ts` | Glob-based discovery of `*_topicids.h`, `*_msgids.h`, `*_msgid_values.h`, and base mapping files |
-| **Parse** | `parser.ts` | Regex extraction of all `#define DEFAULT_*_TOPICID` values with file and line metadata |
-| **Resolve** | `resolver.ts` | 2-tier channel classification + MsgID computation |
-| **Detect** | `detector.ts` | Per-channel collision detection + configurable near-miss warnings |
-| **Report** | `reporter.ts` | GitHub Job Summary, PR annotations, and machine-readable JSON output |
+### Run in CI (GitHub Actions)
 
-### 2-Tier Channel Classification
-
-Determining whether a topic ID belongs to CMD or TLM (and PLATFORM vs GLOBAL) uses a two-tier strategy:
-
-**Tier 1 — Header Analysis** (authoritative): Parses `*_msgids.h` and `*_msgid_values.h` files to find explicit channel assignments via two patterns:
-
-- **Pattern A** (direct): `CFE_PLATFORM_CMD_TOPICID_TO_MIDV(TOPIC_NAME_TOPICID)` — the topic name appears directly inside the macro call
-- **Pattern B** (indirect): A `MIDVAL` template in `*_msgid_values.h` is expanded with a parameter in `*_msgids.h` using token pasting (`##x##`)
-
-**Tier 2 — Heuristic** (fallback): When no header mapping exists, the tool classifies by naming convention — names containing `_TLM`, `_MSG`, or `_DATA_TYPES` map to telemetry; everything else maps to command.
-
----
-
-## Quick Start
-
-Add this to your workflow (`.github/workflows/msgid-check.yml`):
+Add `.github/workflows/msgid-check.yml`:
 
 ```yaml
-name: Message ID Check
+name: MsgID collision check
 on: [push, pull_request]
 
 jobs:
-  check-msgids:
+  msgid-guard:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -119,17 +49,170 @@ jobs:
           near-miss-gap: '2'
 ```
 
-That's it. On every push and PR, the action scans your entire cFS tree and fails the build if any MsgID collisions are found.
+---
+
+## Usage
+
+### CLI examples
+
+```bash
+# Basic scan
+npx cfs-msgid-guard --scan-path .
+
+# If your headers live under specific subtrees
+npx cfs-msgid-guard --scan-path apps --topicid-pattern '**/fsw/inc/*_topicids.h'
+
+# Add near-miss warnings (IDs within N of each other, per channel)
+npx cfs-msgid-guard --scan-path . --near-miss-gap 3
+
+# Machine-readable output
+npx cfs-msgid-guard --scan-path . --format json
+
+# CI-friendly (no ANSI), but still return success even if collisions exist
+npx cfs-msgid-guard --scan-path . --no-color --no-fail-on-collision
+```
+
+### GitHub Actions examples
+
+#### Typical cFS mission repo
+
+```yaml
+- uses: macaris64/cfs-msgid-guard@v1
+  with:
+    scan-paths: '.'
+    topicid-pattern: '**/*_topicids.h'
+    msgid-pattern: '**/*_msgids.h'
+    fail-on-collision: 'true'
+    near-miss-gap: '0'
+    report-format: 'both'
+```
+
+#### Consume JSON output (`allocation-map`)
+
+```yaml
+- uses: macaris64/cfs-msgid-guard@v1
+  id: guard
+  with:
+    report-format: 'json'
+    fail-on-collision: 'false'
+
+- name: Print summary
+  run: |
+    echo '${{ steps.guard.outputs.allocation-map }}' | jq '.summary'
+```
 
 ---
 
-## Inputs
+## Configuration: how it finds headers (and what it expects)
+
+### 1) What gets scanned
+
+- **Root(s)**:
+  - **CLI**: `--scan-path <path>` (single root)
+  - **Action**: `scan-paths` (comma-separated roots)
+- **Topic ID headers**:
+  - **CLI**: `--topicid-pattern` (default `**/*_topicids.h`)
+  - **Action**: `topicid-pattern` (default `**/*_topicids.h`)
+  - The parser looks for:
+
+```c
+#define DEFAULT_<NAME>_TOPICID <hex_or_decimal>
+```
+
+- **MsgID headers (Tier-1 channel classification)**:
+  - **CLI**: `--msgid-pattern` (default `**/*_msgids.h`)
+  - **Action**: `msgid-pattern` (default `**/*_msgids.h`)
+  - From `msgid-pattern`, the scanner also derives a sibling pattern for `*_msgid_values.h`.
+
+### 2) How MsgIDs are computed
+
+`cfs-msgid-guard` computes:
+
+```
+Final MsgID = Base | TopicID
+```
+
+Topic IDs are collision-checked **within each of the four channels**.
+
+### 3) Where base addresses come from
+
+Base addresses come from (highest priority first):
+
+1. **Explicit overrides** (CLI flags / Action inputs): `cmd-base`, `tlm-base`, `global-cmd-base`, `global-tlm-base`
+2. **Auto-detected mapping header**: `default_cfe_core_api_msgid_mapping.h` (if present anywhere under your scan roots)
+3. **Built-in defaults**:
+   - `PLATFORM_CMD`: `0x1800`
+   - `PLATFORM_TLM`: `0x0800`
+   - `GLOBAL_CMD`: `0x1860`
+   - `GLOBAL_TLM`: `0x0860`
+
+### 4) Expected project structure (minimal)
+
+You don’t need a special layout—just ensure the scan root(s) include your headers:
+
+```text
+<mission_root>/
+  apps/
+    <app>/
+      fsw/inc/<app>_topicids.h
+  ...
+  cfe/
+    ... *_msgids.h
+    ... *_msgid_values.h
+  ...
+```
+
+---
+
+## Visual feedback
+
+### Terminal example (collision detected)
+
+Representative CLI output:
+
+```text
+cfs-msgid-guard — Message ID Collision Detector
+
+[1/5] Scanning .
+      Found: 12 topic ID files, 18 msgid files, 9 msgid_values files
+      Base mapping: default_cfe_core_api_msgid_mapping.h
+[2/5] Parsing topic ID definitions...
+      84 definitions from 12 files
+[3/5] Resolving channels and computing MsgIDs...
+      84 resolved (70 header, 14 heuristic)
+[4/5] Detecting collisions (near-miss gap: 2)...
+      1 COLLISION(S)
+[5/5] Report
+
+  COLLISIONS
+  PLATFORM_CMD  TopicID=0x0082  MsgID=0x1882
+    → APP_A (APP_A_MISSION_CMD) at app_a_topicids.h:42
+    → APP_B (APP_B_MISSION_CMD) at app_b_topicids.h:17
+
+  Result: FAIL — 1 collision(s) in 84 topics
+```
+
+### PR annotation example (GitHub Actions)
+
+On pull requests, the Action emits file/line annotations similar to:
+
+```text
+MsgID Collision (error)
+MsgID collision on Platform Command channel: topic ID 0x0082 -> MsgID 0x1882 is claimed by APP_A, APP_B
+at apps/app_a/fsw/inc/app_a_topicids.h:42
+```
+
+---
+
+## GitHub Action inputs / outputs
+
+### Inputs
 
 | Input | Description | Default |
-|-------|-------------|---------|
+|---|---|---|
 | `scan-paths` | Root directories to scan (comma-separated) | `.` |
-| `topicid-pattern` | Glob for topic ID headers | `**/*_topicids.h` |
-| `msgid-pattern` | Glob for MsgID definition headers (channel classification) | `**/*_msgids.h` |
+| `topicid-pattern` | Glob pattern(s) for topic ID headers (comma-separated) | `**/*_topicids.h` |
+| `msgid-pattern` | Glob pattern(s) for MsgID headers (comma-separated) | `**/*_msgids.h` |
 | `cmd-base` | Platform command MsgID base address | `0x1800` |
 | `tlm-base` | Platform telemetry MsgID base address | `0x0800` |
 | `global-cmd-base` | Global command MsgID base address | `0x1860` |
@@ -138,217 +221,35 @@ That's it. On every push and PR, the action scans your entire cFS tree and fails
 | `near-miss-gap` | Warn about topic IDs within N of each other (0 to disable) | `0` |
 | `report-format` | Output format: `summary`, `json`, or `both` | `both` |
 
-## Outputs
+### Outputs
 
 | Output | Description |
-|--------|-------------|
-| `collision-count` | Number of MsgID collisions found |
-| `has-collisions` | Whether any collisions were found (`true`/`false`) |
-| `allocation-map` | JSON string of the full MsgID allocation map |
+|---|---|
+| `collision-count` | Number of collisions found |
+| `has-collisions` | `true` if any collisions were found |
+| `allocation-map` | JSON string containing summary + full allocation map |
 
 ---
 
-## Example Output
+## Troubleshooting
 
-When run against the default NASA cFS Draco bundle (9 apps, 42 topic IDs), the Job Summary shows:
+- **No topic ID files found**
+  - Check you’re scanning the right root (`--scan-path` / `scan-paths`).
+  - Tighten or loosen `--topicid-pattern` / `topicid-pattern`.
 
-### Executive Summary
+- **Lots of heuristic (Tier-2) classification**
+  - Ensure your `*_msgids.h` headers are included by `--msgid-pattern` / `msgid-pattern`.
+  - If your repo uses different filenames, set a custom `msgid-pattern`.
 
-| Metric | Value |
-|--------|------:|
-| Applications Scanned | 9 |
-| Topic IDs Resolved | 42 |
-| Collisions Detected | 0 |
-| Near-Miss Warnings | 0 |
-
-### Allocation Map (excerpt)
-
-| App | Topic Name | Topic ID | MsgID | Status |
-|-----|-----------|:--------:|:-----:|:------:|
-| CFE_ES | `CFE_MISSION_ES_CMD` | `0x0006` | `0x1806` | OK |
-| CFE_TIME | `CFE_MISSION_TIME_CMD` | `0x0005` | `0x1805` | OK |
-| SAMPLE_APP | `SAMPLE_APP_MISSION_CMD` | `0x0082` | `0x1882` | OK |
-| TO_LAB | `TO_LAB_MISSION_CMD` | `0x0080` | `0x1880` | OK |
-
-When a collision is detected, the output changes to:
-
-| App | Topic Name | Topic ID | MsgID | Status |
-|-----|-----------|:--------:|:-----:|:------:|
-| APP_A | `APP_A_MISSION_CMD` | `0x0082` | `0x1882` | **COLLISION** |
-| APP_B | `APP_B_MISSION_CMD` | `0x0082` | `0x1882` | **COLLISION** |
-
-PR annotations pinpoint the exact file and line of each conflicting `#define`.
+- **Different base addresses than the defaults**
+  - Prefer committing a correct `default_cfe_core_api_msgid_mapping.h` under the scan roots.
+  - Or override bases via CLI flags / Action inputs.
 
 ---
 
-## CLI Usage
+## Developer / contributor docs
 
-You can run MsgID collision detection locally — no GitHub Actions required.
-
-### Quick Start
-
-```bash
-# Run directly (no install needed)
-npx cfs-msgid-guard --scan-path /path/to/cfs-mission
-
-# Or install globally
-npm install -g cfs-msgid-guard
-cfs-msgid-guard --scan-path .
-
-# Or as a dev dependency
-npm install --save-dev cfs-msgid-guard
-npx cfs-msgid-guard
-```
-
-### CLI Flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--scan-path <path>` | `.` | Root directory to scan |
-| `--topicid-pattern <glob>` | `**/*_topicids.h` | Topic ID header glob |
-| `--msgid-pattern <glob>` | `**/*_msgids.h` | MsgID header glob |
-| `--cmd-base <hex>` | `0x1800` | Platform CMD base address |
-| `--tlm-base <hex>` | `0x0800` | Platform TLM base address |
-| `--global-cmd-base <hex>` | `0x1860` | Global CMD base address |
-| `--global-tlm-base <hex>` | `0x0860` | Global TLM base address |
-| `--near-miss-gap <n>` | `0` | Warn about IDs within N of each other |
-| `--no-fail-on-collision` | | Exit 0 even with collisions |
-| `--format <table\|json\|summary>` | `table` | Output format |
-| `--no-color` | | Disable ANSI colors |
-| `--report` | | Write `collusion-report.txt` in the current directory |
-| `--expected-count <n>` | | Add an Expected vs Actual section to the report |
-
-### Examples
-
-```bash
-# Scan with near-miss warnings
-cfs-msgid-guard --scan-path . --near-miss-gap 3
-
-# JSON output for scripting
-cfs-msgid-guard --format json --scan-path .
-
-# Custom base addresses
-cfs-msgid-guard --cmd-base 0x2000 --tlm-base 0x1000
-
-# CI-friendly: no color, exit 0 for reporting only
-cfs-msgid-guard --no-color --no-fail-on-collision
-
-# Generate an audit report file
-cfs-msgid-guard --scan-path /path/to/cfs-mission --report --expected-count 20 --no-color
-```
-
-Exit codes: `0` = clean, `1` = collisions found (or no files), `2` = fatal error.
-
----
-
-## Advanced Usage
-
-### Custom Base Addresses
-
-If your mission uses non-standard base addresses:
-
-```yaml
-- uses: macaris64/cfs-msgid-guard@v1
-  with:
-    cmd-base: '0x2000'
-    tlm-base: '0x1000'
-    global-cmd-base: '0x2060'
-    global-tlm-base: '0x1060'
-```
-
-### Warning-Only Mode
-
-To detect collisions without failing the build:
-
-```yaml
-- uses: macaris64/cfs-msgid-guard@v1
-  with:
-    fail-on-collision: 'false'
-    near-miss-gap: '3'
-```
-
-### JSON Output for Downstream Tools
-
-Use the `allocation-map` output in subsequent workflow steps:
-
-```yaml
-- uses: macaris64/cfs-msgid-guard@v1
-  id: guard
-  with:
-    report-format: 'json'
-
-- run: echo '${{ steps.guard.outputs.allocation-map }}' | jq '.allocations[] | select(.channel == "PLATFORM_CMD")'
-```
-
----
-
-## Development
-
-```bash
-# Install dependencies
-npm install
-
-# Run tests (208 tests)
-npm test
-
-# Run with coverage (100% required)
-npm run test:coverage
-
-# Lint
-npm run lint
-
-# Type check
-npm run typecheck
-
-# Build both bundles (dist/index.js + dist/cli.js)
-npm run build
-
-# Quick manual test against bundled NASA fixtures
-npm run test:manual
-```
-
-### Dual Build
-
-The project ships two independent bundles from the same pipeline engine:
-
-| Bundle | Built by | Purpose |
-|--------|----------|---------|
-| `dist/index.js` | `npm run build:action` | GitHub Action entry point (`action.yml` main) |
-| `dist/cli.js` | `npm run build:cli` | CLI entry point (`package.json` bin) |
-
-`npm run build` produces both. The CLI bundle has zero dependency on `@actions/core`.
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed contribution guidelines.
-
----
-
-## Releasing (npm)
-
-Publishing is automated via GitHub Actions when you push a version tag matching `v*`.
-
-- **One-time setup**
-  - Create an npm automation token and add it to GitHub repo secrets as `NPM_TOKEN`.
-  - Ensure `npm run build` succeeds locally (the published package ships `dist/cli.js` and `dist/index.js`).
-
-- **Release steps**
-
-```bash
-# 1) Bump version and create tag (choose one)
-npm version patch
-# npm version minor
-# npm version major
-
-# 2) Push commit + tag
-git push --follow-tags
-```
-
-- **Verify**
-  - In GitHub Actions, confirm the `Publish to npmjs` workflow ran on the tag.
-  - Test install/run:
-
-```bash
-npx cfs-msgid-guard --scan-path /path/to/cfs-mission --no-color
-```
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for development setup, testing, building `dist/`, and release details.
 
 ---
 
